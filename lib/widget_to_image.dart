@@ -4,53 +4,73 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 class WidgetToImage {
-	static Future<ByteData> repaintBoundaryToImage(GlobalKey key, {double pixelRatio = 1.0}) {
-		return new Future.delayed(const Duration(milliseconds: 20), () async {
-			RenderRepaintBoundary repaintBoundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  static Future<ByteData> repaintBoundaryToImage(
+    GlobalKey key, {
+    double pixelRatio = 1.0,
+  }) =>
+      Future.delayed(
+        const Duration(milliseconds: 20),
+        () async {
+          final repaintBoundary =
+              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
 
-			ui.Image image = await repaintBoundary.toImage(pixelRatio: pixelRatio);
-			ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+          final image = await repaintBoundary.toImage(
+            pixelRatio: pixelRatio,
+          );
 
-			return byteData!;
-		});
-	}
+          final byteData = await image.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
 
-	static Future<ByteData> widgetToImage(Widget widget, {
-		Alignment alignment = Alignment.center,
-		Size size = const Size(double.maxFinite, double.maxFinite),
-		double devicePixelRatio = 1.0,
-		double pixelRatio = 1.0
-	}) async {
-		RenderRepaintBoundary repaintBoundary = RenderRepaintBoundary();
+          return byteData!;
+        },
+      );
 
-		RenderView renderView = RenderView(
-			child: RenderPositionedBox(alignment: alignment, child: repaintBoundary),
-			configuration: ViewConfiguration(
-				size: size,
-				devicePixelRatio: devicePixelRatio,
-			),
-			window: WidgetsBinding.instance!.platformDispatcher.views.first,
-		);
+  static Future<ByteData> widgetToImage(
+    Widget widget, {
+    Alignment alignment = Alignment.center,
+    required Size size,
+    double devicePixelRatio = 1.0,
+    double pixelRatio = 1.0,
+  }) async {
+    final repaintBoundary = RenderRepaintBoundary();
 
-		PipelineOwner pipelineOwner = PipelineOwner();
-		pipelineOwner.rootNode = renderView;
-		renderView.prepareInitialFrame();
+    final renderView = RenderView(
+      child: RenderPositionedBox(alignment: alignment, child: repaintBoundary),
+      configuration: ViewConfiguration(
+        size: size,
+        devicePixelRatio: devicePixelRatio,
+      ),
+      view: WidgetsBinding.instance.platformDispatcher.views.first,
+    );
 
-		BuildOwner buildOwner = BuildOwner(focusManager: FocusManager());
-		RenderObjectToWidgetElement rootElement = RenderObjectToWidgetAdapter(
-			container: repaintBoundary,
-			child: widget,
-		).attachToRenderTree(buildOwner);
-		buildOwner.buildScope(rootElement);
-		buildOwner.finalizeTree();
+    final pipelineOwner = PipelineOwner();
 
-		pipelineOwner.flushLayout();
-		pipelineOwner.flushCompositingBits();
-		pipelineOwner.flushPaint();
+    pipelineOwner.rootNode = renderView;
 
-		ui.Image image = await repaintBoundary.toImage(pixelRatio: pixelRatio);
-		ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    renderView.prepareInitialFrame();
 
-		return byteData!;
-	}
+    final buildOwner = BuildOwner(focusManager: FocusManager());
+
+    final rootElement = RenderObjectToWidgetAdapter(
+      container: repaintBoundary,
+      child: widget,
+    ).attachToRenderTree(buildOwner);
+
+    buildOwner.buildScope(rootElement);
+
+    buildOwner.finalizeTree();
+
+    pipelineOwner.flushLayout();
+
+    pipelineOwner.flushCompositingBits();
+
+    pipelineOwner.flushPaint();
+
+    final image = await repaintBoundary.toImage(pixelRatio: pixelRatio);
+
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    return byteData!;
+  }
 }
